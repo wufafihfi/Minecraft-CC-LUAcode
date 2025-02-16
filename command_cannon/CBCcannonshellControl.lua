@@ -320,7 +320,7 @@ function Set_reload_t_s_function()
     else
         Set_reload_t_s_SUB.Press = false
     end
-    if(shell_speed < 0.01)then
+    if(reload_t_s < 0.01)then
         reload_t_s = 0.01
     end
     if(GUI.IfInRect(Set_reload_t_s_RESET.B_RECT,GUI.ExMsg) and GUI.ExMsg.botton == 1)then
@@ -562,6 +562,20 @@ function getCoordinates(angle, radius)--已知角和半径求坐标
     return Vector2:new(x, y)
 end
 
+-- 定义计算点坐标的函数
+local function calculate_point(r, pitch, yaw)
+    -- 将角度转换为弧度
+    local pitch_rad = degreeToRadian(pitch)  -- 俯仰角 (PITCH)
+    local yaw_rad = degreeToRadian(yaw)      -- 偏航角 (YAW)
+
+    -- 计算直角坐标系下的坐标
+    local x = r * math.cos(pitch_rad) * math.sin(yaw_rad)
+    local y = r * math.sin(pitch_rad)
+    local z = r * math.cos(pitch_rad) * math.cos(yaw_rad)
+
+    return Vector3:new(x, y, z)
+end
+
 --参数获取
 function GetEuler()  --获取欧拉角
     local quat={w=0,x=0,y=0,z=0}
@@ -579,7 +593,7 @@ function GetShipTransform()
     Ps = ship.getWorldspacePosition()
     q = ship.getQuaternion()
     velocity = ship.getVelocity()
-    barrel_pitch = -CBC_CM.getPitch() + 90
+    barrel_pitch = CBC_CM.getPitch()
 end
 
 --功能
@@ -589,15 +603,14 @@ function posUpdate()
     N_q.y = -q.y
     N_q.z = -q.z
     N_q.w = -q.w
-    local shootPosOffset_barrel_v2 = getCoordinates(barrel_pitch,barrel_length)
-    local shootPosOffset_barrel_v2_X = getCoordinates(barrel_yaw,barrel_length)
+    local shootPosOffset_barrel_v3 = calculate_point(barrel_length,barrel_pitch,barrel_yaw)
     local startPos_Offset = RotateVectorByQuat(N_q,startPos)
     --炮弹
-    local shootPosOffset = RotateVectorByQuat(N_q,Vector3:new(shootPosOffset_barrel_v2_X.y,shootPosOffset_barrel_v2.x,shootPosOffset_barrel_v2.y))--发射位置偏移
+    local shootPosOffset = RotateVectorByQuat(N_q,Vector3:new(shootPosOffset_barrel_v3.x,shootPosOffset_barrel_v3.y,shootPosOffset_barrel_v3.z))--发射位置偏移
     shootPos = V3add(V3add(shootPosOffset,startPos_Offset),Ps) 
     shootPos_command = string.format("%f %f %f",shootPos.x,shootPos.y,shootPos.z)
     --声音
-    local soundPlayPosOffset = RotateVectorByQuat(N_q,Vector3:new(shootPosOffset_barrel_v2_X.x,shootPosOffset_barrel_v2.x,shootPosOffset_barrel_v2.y))--播放位置偏移
+    local soundPlayPosOffset = RotateVectorByQuat(N_q,Vector3:new(shootPosOffset_barrel_v3.x,shootPosOffset_barrel_v3.y,shootPosOffset_barrel_v3.z))--播放位置偏移
     soundPlayPos = V3add(V3add(soundPlayPosOffset,startPos_Offset),Ps)
     soundPlayPos_command = string.format("%f %f %f",soundPlayPos.x,soundPlayPos.y,soundPlayPos.z)
 end
@@ -608,9 +621,8 @@ function tagUpdate()
     N_q.y = -q.y
     N_q.z = -q.z
     N_q.w = -q.w
-    local shell_v_Offset_barrel_v2 = getCoordinates(barrel_pitch,shell_speed)
-    local shell_v_Offset_barrel_v2_X = getCoordinates(barrel_yaw,shell_speed)
-    local shell_v_Offset = RotateVectorByQuat(N_q,Vector3:new(shell_v_Offset_barrel_v2_X.y,shell_v_Offset_barrel_v2.x,shell_v_Offset_barrel_v2.y))--速度
+    local shell_v_Offset_barrel_v3 = calculate_point(shell_speed,barrel_pitch,barrel_yaw)
+    local shell_v_Offset = RotateVectorByQuat(N_q,Vector3:new(shell_v_Offset_barrel_v3.x,shell_v_Offset_barrel_v3.y,shell_v_Offset_barrel_v3.z))--速度
     shell_v = shell_v_Offset
     Motion = string.format("Motion:[%f,%f,%f]",shell_v.x,shell_v.y,shell_v.z)
     tag = string.format("{%s,%s,%s}",Motion,Damage,fuze)
